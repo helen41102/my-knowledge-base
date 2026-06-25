@@ -1,16 +1,8 @@
 import { useState } from 'react';
-import { api } from '../api/client';
+import { getFolders, createFolder, deleteFolder, getFolderItemCount } from '../store/storage';
+import type { Folder } from '../store/storage';
 
-interface Folder {
-  id: number;
-  name: string;
-  icon: string;
-  color: string;
-  item_count: number;
-  description?: string;
-}
-
-const ICONS = ['📁', '📚', '🎨', '💼', '🔬', '🌱', '💡', '⭐', '🎯', '🏠', '✈️', '🎵'];
+const ICONS = ['📁', '📚', '🎨', '💼', '🔬', '🌱', '💡', '⭐', '🎯', '🏠', '✈️', '🎵', '💻', '🏋️', '🍳'];
 const COLORS = ['#2D5BE3', '#7C3AED', '#F05A28', '#2ECC71', '#E91E63', '#FF9800', '#00BCD4', '#795548'];
 
 interface Props {
@@ -25,109 +17,95 @@ export default function FolderList({ folders, selectedId, onSelect, onRefresh }:
   const [name, setName] = useState('');
   const [icon, setIcon] = useState('📁');
   const [color, setColor] = useState('#2D5BE3');
-  const [loading, setLoading] = useState(false);
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!name.trim()) return;
-    setLoading(true);
-    try {
-      await api.createFolder({ name: name.trim(), icon, color });
-      setName(''); setShowNew(false);
-      onRefresh();
-    } finally {
-      setLoading(false);
-    }
+    createFolder({ name: name.trim(), icon, color });
+    setName(''); setIcon('📁'); setColor('#2D5BE3');
+    setShowNew(false);
+    onRefresh();
   };
 
-  const handleDelete = async (e: React.MouseEvent, id: number) => {
+  const handleDelete = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    if (!confirm('确认删除这个文件夹及其全部内容？')) return;
-    await api.deleteFolder(id);
+    if (!confirm('确认删除这个文件夹？文件夹内容不会删除，会移到"全部"里。')) return;
+    deleteFolder(id);
     if (selectedId === id) onSelect(null);
     onRefresh();
   };
 
+  const totalCount = getFolders().reduce((s, f) => s + getFolderItemCount(f.id), 0);
+
   return (
     <div className="space-y-2">
-      {/* All items button */}
       <button
         onClick={() => onSelect(null)}
-        className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-          selectedId === null
-            ? 'bg-primary-500 text-white shadow-md'
-            : 'bg-white text-gray-600 hover:bg-primary-50'
-        }`}
+        className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all"
+        style={selectedId === null ? { backgroundColor: '#2D5BE3', color: 'white' } : { backgroundColor: 'white', color: '#4A5568' }}
       >
         <span>🌐</span>
         <span>全部内容</span>
-        <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${selectedId === null ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400'}`}>
-          {folders.reduce((s, f) => s + f.item_count, 0)}
+        <span className="ml-auto text-xs px-2 py-0.5 rounded-full" style={selectedId === null ? { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' } : { backgroundColor: '#F7F8FA', color: '#718096' }}>
+          {totalCount}
         </span>
       </button>
 
-      {/* Folder list */}
-      {folders.map((folder) => (
-        <button
-          key={folder.id}
-          onClick={() => onSelect(folder.id)}
-          className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all group ${
-            selectedId === folder.id
-              ? 'text-white shadow-md'
-              : 'bg-white text-gray-600 hover:bg-gray-50'
-          }`}
-          style={selectedId === folder.id ? { backgroundColor: folder.color } : {}}
-        >
-          <span>{folder.icon}</span>
-          <span className="truncate flex-1 text-left font-medium">{folder.name}</span>
-          <span className={`text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${selectedId === folder.id ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-400'}`}>
-            {folder.item_count}
-          </span>
-          <span
-            onClick={(e) => handleDelete(e, folder.id)}
-            className={`opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0 ${selectedId === folder.id ? 'text-white/70 hover:text-white' : 'text-gray-300 hover:text-red-400'}`}
+      {folders.map(folder => {
+        const count = getFolderItemCount(folder.id);
+        const active = selectedId === folder.id;
+        return (
+          <button
+            key={folder.id}
+            onClick={() => onSelect(folder.id)}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-all group"
+            style={active ? { backgroundColor: folder.color, color: 'white' } : { backgroundColor: 'white', color: '#4A5568' }}
           >
-            ×
-          </span>
-        </button>
-      ))}
+            <span>{folder.icon}</span>
+            <span className="truncate flex-1 text-left font-medium">{folder.name}</span>
+            <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0" style={active ? { backgroundColor: 'rgba(255,255,255,0.2)', color: 'white' } : { backgroundColor: '#F7F8FA', color: '#718096' }}>
+              {count}
+            </span>
+            <span
+              onClick={e => handleDelete(e, folder.id)}
+              className="opacity-0 group-hover:opacity-100 text-lg leading-none flex-shrink-0"
+              style={{ color: active ? 'rgba(255,255,255,0.7)' : '#CBD5E0' }}
+            >×</span>
+          </button>
+        );
+      })}
 
-      {/* New folder */}
       {showNew ? (
-        <div className="bg-white rounded-xl p-4 space-y-3 shadow border border-primary-100">
+        <div className="bg-white rounded-xl p-4 space-y-3 shadow border border-blue-100">
           <input
             autoFocus
             value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+            onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleCreate()}
             placeholder="文件夹名称"
-            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2"
           />
           <div className="flex flex-wrap gap-2">
-            {ICONS.map((ic) => (
-              <button key={ic} onClick={() => setIcon(ic)} className={`text-xl p-1 rounded-lg ${icon === ic ? 'bg-primary-100' : 'hover:bg-gray-100'}`}>{ic}</button>
+            {ICONS.map(ic => (
+              <button key={ic} onClick={() => setIcon(ic)} className={`text-xl p-1 rounded-lg ${icon === ic ? 'bg-blue-100' : 'hover:bg-gray-100'}`}>{ic}</button>
             ))}
           </div>
           <div className="flex gap-2 flex-wrap">
-            {COLORS.map((c) => (
+            {COLORS.map(c => (
               <button key={c} onClick={() => setColor(c)} className={`w-6 h-6 rounded-full border-2 ${color === c ? 'border-gray-800 scale-110' : 'border-transparent'}`} style={{ backgroundColor: c }} />
             ))}
           </div>
           <div className="flex gap-2">
-            <button onClick={handleCreate} disabled={loading || !name.trim()} className="flex-1 bg-primary-500 text-white text-sm py-2 rounded-lg disabled:opacity-50">
-              {loading ? '创建中...' : '创建'}
-            </button>
-            <button onClick={() => { setShowNew(false); setName(''); }} className="flex-1 bg-gray-100 text-gray-600 text-sm py-2 rounded-lg">
-              取消
-            </button>
+            <button onClick={handleCreate} disabled={!name.trim()} className="flex-1 text-white text-sm py-2 rounded-lg disabled:opacity-50" style={{ backgroundColor: '#2D5BE3' }}>创建</button>
+            <button onClick={() => { setShowNew(false); setName(''); }} className="flex-1 bg-gray-100 text-gray-600 text-sm py-2 rounded-lg">取消</button>
           </div>
         </div>
       ) : (
         <button
           onClick={() => setShowNew(true)}
-          className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm text-primary-500 border-2 border-dashed border-primary-200 hover:border-primary-400 hover:bg-primary-50 transition-all"
+          className="w-full flex items-center gap-2 px-4 py-3 rounded-xl text-sm border-2 border-dashed transition-all"
+          style={{ color: '#2D5BE3', borderColor: '#bfcfff' }}
         >
-          <span>+</span>
-          <span>新建文件夹</span>
+          <span>+</span><span>新建文件夹</span>
         </button>
       )}
     </div>
