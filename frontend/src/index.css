@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+* {
+  -webkit-tap-highlight-color: transparent;
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  background: #F7F8FA;
+  color: #1A1A2E;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Safe area for iOS notch */
+.safe-top { padding-top: env(safe-area-inset-top); }
+.safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+
+/* Mobile scrolling */
+.scroll-smooth { -webkit-overflow-scrolling: touch; }
+
+/* Card hover for desktop */
+@media (hover: hover) {
+  .card-hover:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(45, 91, 227, 0.15);
+  }
+}
